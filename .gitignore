@@ -1,0 +1,8 @@
+.idea/
+config/
+data/
+lib/
+out/
+src/META-INF/
+src/manifest/
+
