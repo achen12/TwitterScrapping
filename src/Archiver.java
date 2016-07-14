@@ -12,7 +12,7 @@ import java.text.SimpleDateFormat;
 public class Archiver {
 
     public final KafkaConsumer<String,String> consumer;
-    public Archiver(String brokers){
+    public Archiver(String brokers,String topic){
         Properties props = new Properties();
         props.put("bootstrap.servers", brokers);
         props.put("group.id", "test");
@@ -21,7 +21,7 @@ public class Archiver {
         props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
         props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
         consumer = new KafkaConsumer<String,String>(props);
-        consumer.subscribe(Arrays.asList("Tweetlive"));
+        consumer.subscribe(Arrays.asList(topic));
     }
     public static void main(String[] args){
 
@@ -46,10 +46,18 @@ public class Archiver {
         }
 
 
-        Archiver archiver = new Archiver(brokers);
+        Archiver archiver = new Archiver(brokers,"Tweetlive");
         Timer t = new Timer();
         ArchiverTimerTask task = new ArchiverTimerTask(dataDir,archiver.consumer);
         t.schedule(task,1,1000);
+
+
+        archiver = new Archiver(brokers,"Trendlive");
+        t = new Timer();
+        dataDir = dataDir + "trend";
+        task = new ArchiverTimerTask(dataDir,archiver.consumer);
+        t.schedule(task,1,1000);
+
         System.out.println("Hello!");
     }
 }

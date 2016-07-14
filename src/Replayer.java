@@ -1,6 +1,7 @@
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import twitter4j.JSONObject;
 
 import java.io.*;
 import java.text.SimpleDateFormat;
@@ -10,19 +11,21 @@ import java.util.zip.GZIPInputStream;
 /**
  * Created by ac on 3/25/16.
  */
-public class Replayer {
+public class Replayer extends Thread{
 
     private KafkaProducer<String,String> producer;
     private String brokers;
     private Date startTime;
     private String dataDir;
     private SimpleDateFormat sdf;
+    private String topic;
 
     public Replayer(String givenBrokers, String givenTargetTopic,Date givenStartTime, String givenDirectory){
 
         this.brokers = givenBrokers;
         this.startTime = givenStartTime;
         this.dataDir = givenDirectory;
+        this.topic = givenTargetTopic;
         Properties props = new Properties();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
@@ -33,14 +36,18 @@ public class Replayer {
         this.producer = new KafkaProducer<String, String>(props);
         this.sdf = new SimpleDateFormat("yy-MM-dd/HH-mm");
     }
-    public void start(){
+    public void run(){
         int i = 1;
         long timeDiff = System.currentTimeMillis() -  (startTime.getTime());
 
         while (true) {
             String dir = dataDir + sdf.format(new Date(startTime.getTime() + 10 * 60 * 1000 * i)) + ".json.gz";
             System.out.println(dir);
-            ReplayerSingleFileTask rsft = new ReplayerSingleFileTask(timeDiff, dir, producer);
+            if ((new File(dir)).exists() == false){
+                System.out.println("No next file found/ end of sequence@\n"+dir);
+                break;
+            }
+            ReplayerSingleFileTask rsft = new ReplayerSingleFileTask(timeDiff, dir, producer,topic);
             rsft.run();
             i++;
         }
@@ -49,11 +56,13 @@ public class Replayer {
 
 
     private class ReplayerSingleFileTask implements Runnable{
-        public ReplayerSingleFileTask(long givenTimeDiff, String givenFileDir,KafkaProducer<String,String> givenProducer){
+        public ReplayerSingleFileTask(long givenTimeDiff, String givenFileDir,KafkaProducer<String,String> givenProducer,String givenTopic){
             fileDir = givenFileDir;
             producer = givenProducer;
             timeDiff = givenTimeDiff;
+            topic = givenTopic;
         }
+        private String topic;
         private String fileDir;
         private long timeDiff;
         private KafkaProducer<String,String> producer;
@@ -63,15 +72,19 @@ public class Replayer {
                 String raw;
                 while((raw = in.readLine())!=null){
                     String timestamp = "";
-                    if(raw.charAt(raw.length()-2) == '}'){ //Part of a delete
-                        timestamp = raw.substring(raw.length()-16,raw.length()-3);
-                    }else{
-                        timestamp = raw.substring(raw.length()-15,raw.length()-2);
+                    JSONObject json = new JSONObject(raw);
+                    if(json.has("timestamp_ms")){ //General case like trend and tweet.
+                        timestamp = json.getString("timestamp_ms");
+                    }else{//Speical case:
+                        //Delete object
+                        timestamp = json.getJSONObject("delete").getString("timestamp_ms");
                     }
                     long delayTime = Long.decode(timestamp) + timeDiff;
-                    while(System.currentTimeMillis() < delayTime){}
-                    System.out.println(System.currentTimeMillis() - delayTime);
-                    ProducerRecord<String,String> msg = new ProducerRecord<String,String>("Tweet", null,raw);
+                    while(System.currentTimeMillis() < delayTime){
+                        //System.out.println(System.currentTimeMillis() - delayTime);
+                    }
+                    //System.out.println(System.currentTimeMillis() - delayTime);
+                    ProducerRecord<String,String> msg = new ProducerRecord<String,String>(topic, null,raw);
                     producer.send(msg);
                 }
             }
@@ -109,7 +122,10 @@ public class Replayer {
             e.printStackTrace();
         }
 
-        Replayer replayer = new Replayer(brokers,topic,startDate,dataDir);
+        Replayer replayer = new Replayer(brokers,"Tweet",startDate,dataDir);
         replayer.start();
+        Replayer trendReplayer = new Replayer(brokers,"Trend",startDate,dataDir + "trend");
+        trendReplayer.start();
+        System.out.println("Replayers started");
     }
 }

@@ -46,8 +46,5 @@ public class WindowAnalyzer {
 
         WindowAnalyzer archiver = new WindowAnalyzer(brokers);
         Timer t = new Timer();
-        ArchiverTimerTask task = new ArchiverTimerTask(dataDir,archiver.consumer);
-        t.schedule(task,1,1000);
-        System.out.println("Hello!");
     }
 }
