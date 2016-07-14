@@ -1,5 +1,5 @@
-# TwitterScrapping
-A series of tools to scrap from Twitter and replay on Kafka.
+# TwitterRecordAndReplay System
+A series of tools to record from Twitter and replay on Kafka.
 
 This is an infrastructure setup for Twitter analytics.  
 Scrapper taps into the Twitter Streaming and Queurying API and sends the Jsons into Kafka.
@@ -11,6 +11,4 @@ And this allow multiple analytics to swap back and forth between online and repl
 The scalability of this set of tool into the true Twitter Stream is still in question.  Parallelizing multiple SAR sets are recommended.
 
 More features at plan:
- * Record Trending hash list in parallel stream
- * Implement RushedReplayer to replay at maximum speed.  This is mainly to test computational performance at scale rather than accurarcy performance.
- * TaskManagers listens into Kakfa which manages the replayer associated with the topic.
+ * Implement RushedReplayer to replay at maximum speed.  This is mainly to test computational performance at scale rather than accurarcy performance.  Essentially rate controllable replayer.  This would be useful to test the computational performance of the analysis operations.
